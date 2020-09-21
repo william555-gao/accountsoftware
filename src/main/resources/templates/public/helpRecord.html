@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>记账帮助</title>
+    <link rel="shortcut icon" href="/simplebilling/img/icon/webIcon.ico">
+    <link rel="stylesheet" href="/simplebilling/css/bootstrap.css">
+    <link rel="stylesheet" href="/simplebilling/css/style.css">
+    <link rel="stylesheet" href="/simplebilling/css/private.css">
+    <link rel="stylesheet" href="/simplebilling/css/myStyle.css">
+    <link rel="stylesheet" href="/simplebilling/css/date.css">
+    <link rel="stylesheet" href="/simplebilling/css/load.css">
+    <script src="/simplebilling/js/jquery-3.2.1.js"></script>
+    <script src="/simplebilling/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="/simplebilling/js/date.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $("ul#nav").find("li").each(function () {
+                var a = $(this).find("a:first")[0];
+                if ($(a).attr("href") === location.pathname) {
+                    $(this).addClass("active");
+                } else {
+                    $(this).removeClass("active");
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+<!--特殊背景-->
+<canvas id="J_dotLine" style="background-color: rgba(255,255,255,0);z-index: 0;position: fixed;"></canvas>
+<script>
+    function Dotline(option) {
+        this.opt = this.extend({
+            dom: 'J_dotLine',//画布id
+            cw: 1000,//画布宽
+            ch: 500,//画布高
+            ds: 100,//点的个数
+            r: 0.5,//圆点半径
+            dis: 100//触发连线的距离
+        }, option);
+        this.c = document.getElementById(this.opt.dom);//canvas元素id
+        this.ctx = this.c.getContext('2d');
+        this.c.width = this.opt.cw;//canvas宽
+        this.c.height = this.opt.ch;//canvas高
+        this.dotSum = this.opt.ds;//点的数量
+        this.radius = this.opt.r;//圆点的半径
+        this.disMax = this.opt.dis * this.opt.dis;//点与点触发连线的间距
+        this.dots = [];
+        //requestAnimationFrame控制canvas动画
+        var RAF = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function (callback) {
+            window.setTimeout(callback, 1000 / 60);
+        };
+        var _self = this;
+        //增加鼠标效果
+        var mousedot = {x: null, y: null, label: 'mouse'};
+        this.c.onmousemove = function (e) {
+            var e = e || window.event;
+            mousedot.x = e.clientX - _self.c.offsetLeft;
+            mousedot.y = e.clientY - _self.c.offsetTop;
+        };
+        this.c.onmouseout = function (e) {
+            mousedot.x = null;
+            mousedot.y = null;
+        }
+        //控制动画
+        this.animate = function () {
+            _self.ctx.clearRect(0, 0, _self.c.width, _self.c.height);
+            _self.drawLine([mousedot].concat(_self.dots));
+            RAF(_self.animate);
+        };
+    }
+
+    //合并配置项，es6直接使用obj.assign();
+    Dotline.prototype.extend = function (o, e) {
+        for (var key in e) {
+            if (e[key]) {
+                o[key] = e[key]
+            }
+        }
+        return o;
+    };
+    //画点
+    Dotline.prototype.addDots = function () {
+        var dot;
+        for (var i = 0; i < this.dotSum; i++) {//参数
+            dot = {
+                x: Math.floor(Math.random() * this.c.width) - this.radius,
+                y: Math.floor(Math.random() * this.c.height) - this.radius,
+                ax: (Math.random() * 2 - 1) / 1.5,
+                ay: (Math.random() * 2 - 1) / 1.5
+            }
+            this.dots.push(dot);
+        }
+    };
+    //点运动
+    Dotline.prototype.move = function (dot) {
+        dot.x += dot.ax;
+        dot.y += dot.ay;
+        //点碰到边缘返回
+        dot.ax *= (dot.x > (this.c.width - this.radius) || dot.x < this.radius) ? -1 : 1;
+        dot.ay *= (dot.y > (this.c.height - this.radius) || dot.y < this.radius) ? -1 : 1;
+        //绘制点
+        this.ctx.beginPath();
+        this.ctx.arc(dot.x, dot.y, this.radius, 0, Math.PI * 2, true);
+        this.ctx.stroke();
+    };
+    //点之间画线
+    Dotline.prototype.drawLine = function (dots) {
+        var nowDot;
+        var _that = this;
+        //自己的思路：遍历两次所有的点，比较点之间的距离，函数的触发放在animate里
+        this.dots.forEach(function (dot) {
+
+            _that.move(dot);
+            for (var j = 0; j < dots.length; j++) {
+                nowDot = dots[j];
+                if (nowDot === dot || nowDot.x === null || nowDot.y === null) continue;//continue跳出当前循环开始新的循环
+                var dx = dot.x - nowDot.x,//别的点坐标减当前点坐标
+                    dy = dot.y - nowDot.y;
+                var dc = dx * dx + dy * dy;
+                if (Math.sqrt(dc) > Math.sqrt(_that.disMax)) continue;
+                // 如果是鼠标，则让粒子向鼠标的位置移动
+                if (nowDot.label && Math.sqrt(dc) > Math.sqrt(_that.disMax) / 2) {
+                    dot.x -= dx * 0.02;
+                    dot.y -= dy * 0.02;
+                }
+                var ratio;
+                ratio = (_that.disMax - dc) / _that.disMax;
+
+                _that.ctx.beginPath();
+                _that.ctx.lineWidth = ratio / 2;
+                _that.ctx.strokeStyle = 'rgba(0,0,0,' + (ratio - 0.7) + ')';
+                _that.ctx.moveTo(dot.x, dot.y);
+                _that.ctx.lineTo(nowDot.x, nowDot.y);
+                _that.ctx.stroke();//不描边看不出效果
+
+                //dots.splice(dots.indexOf(dot), 1);
+            }
+        });
+    };
+    //开始动画
+    Dotline.prototype.start = function () {
+        var _that = this;
+        this.addDots();
+        setTimeout(function () {
+            _that.animate();
+        }, 100);
+    };
+    //调用
+    window.onload = function () {
+        if (window.innerWidth < 1980 && window.innerWidth > 800) {
+            var dotline = new Dotline({
+                dom: 'J_dotLine',//画布id
+                cw: window.innerWidth,//画布宽
+                ch: window.innerHeight,//画布高
+                ds: 200,//点的个数
+                r: 0.1,//圆点半径
+                dis: 200//触发连线的距离
+            }).start();
+        } else {
+            var dotline = new Dotline({
+                dom: 'J_dotLine',//画布id
+                cw: window.innerWidth,//画布宽
+                ch: window.innerHeight,//画布高
+                ds: 50,//点的个数
+                r: 0.1,//圆点半径
+                dis: 100//触发连线的距离
+            }).start();
+        }
+    }
+</script>
+
+<!--头部-->
+<script type="text/javascript">
+    $(document).ready(function () {
+        $("ul#nav").find("li").each(function () {
+            var a = $(this).find("a:first")[0];
+            if ($(a).attr("href") === location.pathname) {
+                $(this).addClass("active");
+            } else {
+                $(this).removeClass("active");
+            }
+        });
+    });
+</script>
+<header id="header" class="">
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-default navbar-fixed-top nav-bgc" role="navigation">
+        <div class="container-fluid container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse"
+                        data-target="#bs-example-navbar-collapse-1">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="/simplebilling/page/public/index.html">Simple <span
+                        class="icon-coin-yen"></span> Billing</a>
+            </div>
+            <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+                <ul class="nav navbar-nav" id="nav">
+                    <li class="active">
+                        <a href="/simplebilling/page/public/index.html">主页</a>
+                    </li>
+                    <li>
+                        <a href="/simplebilling/account/ShowAccountServlet">进入系统</a>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                            帮助 <b class="caret"></b>
+                        </a>
+                        <ul class="dropdown-menu" style="text-align: center;">
+                            <li>
+                                <a href="/simplebilling/page/public/helpRecord.html">关于记账</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li>
+                                <a href="/simplebilling/page/public/helpModify.html">关于修改</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li>
+                                <a href="/simplebilling/page/public/helpExport.html">关于导出</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="about.html">关于本站</a>
+                    </li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/simplebilling/page/public/registerStep1.html" style="font-size: 1.2em;"><span
+                                class="icon-clipboard"></span> 注册</a>
+                    </li>
+                    <li class="dropdown">
+                        <a href="#" style="font-size: 1.2em;" data-toggle="modal"
+                           data-target="#myModal"><span class="icon-enter"></span> 登录</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </nav>
+</header><!-- /header -->
+
+
+<!-- 模态框（Modal） -->
+<div class="container">
+    <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="text-align: center;">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×
+                    </button>
+                    <span class="modal-title" id="myModalLabel" style="font-size: 1.5em;font-family: 宋体,serif;">
+                        欢迎登录
+                    </span>
+                </div>
+                <div class="modal-body" style="padding-top: 10px;padding-bottom: 10px;">
+                    <div class="row">
+                        <div class="col-md-1"></div>
+                        <div class="col-md-10">
+                            <div id="myAlert" class="alert alert-warning hide">
+                                <a href="#" class="close" data-dismiss="alert">&times;</a>
+                                <strong>警告！</strong>您的网络连接有问题。
+                            </div>
+                            <div class="input-group" id="divInputName">
+                                <span class="input-group-addon icon-user icon-big-color"></span>
+                                <input id="username" type="text" class="form-control" placeholder="手机号" maxlength="11">
+                            </div>
+                            <br>
+                            <div class="input-group" id="divInputPassword">
+                                <span class="input-group-addon icon-key icon-big-color"></span>
+                                <input id="password" type="password" class="form-control" maxlength="6" minlength="6"
+                                       placeholder="密码">
+                            </div>
+                            <br>
+                            <div id="v_container"></div>
+                            <div class="input-group" style="padding: 0;margin: 0;" id="divVerifyCode">
+                                <input type="text" id="code_input" placeholder="请输入验证码" class="form-control"
+                                       maxlength="4" minlength="4">
+                                <span id="my_button" class="input-group-addon btn btn-default">验证</span>
+                            </div>
+                            <script src="/simplebilling/js/gVerify.js"></script>
+                            <!--输入后-->
+                            <script>
+                                var flag = false;
+                                var verifyCode = new GVerify("v_container");
+                                $('span#my_button').click(function () {
+                                    var res = verifyCode.validate(document.getElementById("code_input").value);
+                                    if (res) {
+                                        flag = true;
+                                        if ($('div#divVerifyCode').hasClass('has-error')) {
+                                            $('div#divVerifyCode').removeClass('has-error');
+                                            $('div#divVerifyCode').addClass("has-success");
+                                        }
+                                        $('div#divVerifyCode').addClass("has-success");
+                                    } else {
+                                        var inputcode = document.getElementById("code_input");
+                                        inputcode.value = "";
+                                        $('div#divVerifyCode').addClass("has-error");
+                                    }
+                                });
+
+                                function login() {
+                                    // 获取用户名
+                                    var username = $('input#username').val().trim();
+                                    // 获取密码
+                                    var password = $('input#password').val().trim();
+                                    if (password.length === 0) {
+                                        $('div#divInputPassword').addClass("has-error");
+                                    }
+                                    if (username.length === 0) {
+                                        $('div#divInputName').addClass("has-error");
+                                    } else {
+                                        if (flag) {
+                                            var phoneReg = /^1[3|4|5|8][0-9]\d{4,8}$/;
+                                            var userJson;
+                                            // 判断登录方式
+                                            if (phoneReg.test(username)) {
+                                                $('div#divInputName').addClass("has-success");
+                                                $('div#divInputPassword').addClass("has-success");
+                                                userJson = {"userPhonenum": username, "userPassword": password};
+                                                $.ajax({
+                                                    type: "post",
+                                                    url: "/simplebilling/user/UserLoginServlet",
+                                                    data: {"userJson": JSON.stringify(userJson)},
+                                                    //设置为json,则返回的必须也要是json类型，不然就执行error
+                                                    dataType: "text",
+                                                    success: function (data) {
+                                                        if (data === 'SUCCESS') {
+                                                            // 跳转到用户查询servlet
+                                                            window.location.href = "/simplebilling/user/ShowUser";
+                                                        } else {
+                                                            $('div#divInputPassword').addClass("has-error");
+                                                        }
+                                                    },
+                                                    error: function () {
+                                                        $('div#myAlert').removeClass('hide');
+                                                    }
+                                                });
+                                            } else {
+                                                $('div#divInputName').addClass("has-error");
+                                            }
+                                        } else {
+                                            $('div#divVerifyCode').addClass("has-error");
+                                        }
+                                    }
+                                }
+
+                                //判断是否敲击了Enter键
+                                $(document).keyup(function (event) {
+                                    if (event.keyCode === 13) {
+                                        $("input#login").trigger("click");
+                                    }
+                                });
+                            </script>
+                        </div>
+                        <div class="col-md-1"></div>
+                    </div>
+                </div>
+                <div style="width: 100%;">
+                    <input type="button" id="login" class="bg-success login-btn" onclick="login();" value="登录">
+                </div>
+            </div>
+        </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+<script>
+    $(function () {
+        if (window.innerWidth > 800 && window.innerWidth < 1980) {
+            $('#myModal').find('.modal-dialog').width(350);
+        }
+    });
+</script>
+
+<!--侧边栏(移动端不显示)-->
+<aside class="hidden-xs">
+    <div class="aside">
+        <ul>
+            <li><a href="https://github.com/dorneal" target="_blank"><span class="icon-github"></span></a></li>
+            <li><a href="https://www.linkedin.com/in/%E9%B9%8F-%E9%BB%84-981502116/" target="_blank"><span
+                    class="icon-linkedin"></span></a></li>
+            <li><a href="http://mail.qq.com/cgi-bin/qm_share?t=qm_mailme&email=5NXX1NfT0NPd09LRpJWVyoeLiQ"
+                   target="_blank"><span class="icon-mail4"></span></a></li>
+        </ul>
+    </div>
+</aside>
+
+<!--主显示界面-->
+<section>
+    <section id="main">
+        <section>
+            <div class="container">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">
+                            记账帮助
+                        </h3>
+                    </div>
+                    <div class="panel-body">
+                        <div class="helpUser">
+                            <article>
+                                <p>登录成功后，显示的是账本的所有记录，并进行了分页。</p>
+                                <p>在左上角打开记账，选择你需要的选择进行记账</p>
+                                <img src="/simplebilling/img/help/1.png" alt="记账帮助" class="img-responsive">
+                                <p>选择打开后如图所示</p>
+                                <img src="/simplebilling/img/help/2.png" alt="记账帮助" class="img-responsive">
+                                <p>点击输入框后，有简易页面计算器弹出，再次点击输入框则消失，计算器存在问题，请勿进行小数运算</p>
+                                <img src="/simplebilling/img/help/3.png" alt="计算器" class="img-responsive">
+                                <p>选择你记录的类型，具体类型如图所示</p>
+                                <img src="/simplebilling/img/help/4.png" alt="记账类型" class="img-responsive">
+                                <p>选择支付类型，如图所示</p>
+                                <img src="/simplebilling/img/help/5.png" alt="支付方式" class="img-responsive">
+                                <p>点击日期输入框，自动弹出可滑动式日期选择控件</p>
+                                <img src="/simplebilling/img/help/6.png" alt="日期控件" class="img-responsive">
+                                <p>你也可以选择填写备注，更方便回忆。</p>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </section>
+</section>
+</body>
+</html>
